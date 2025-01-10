@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import os
 
 
-def sanitize_filename(title):
+def sanitize_filename(title, format=".md"):
     """Convert a title into a valid filename."""
     print(f"Sanitizing title: {title}")
     filename = title.lower()
@@ -14,7 +14,7 @@ def sanitize_filename(title):
     filename = re.sub(r"[^a-z0-9-]", "-", filename)
     filename = re.sub(r"-+", "-", filename)
     filename = filename.strip("-")
-    final_filename = filename + ".mdx"
+    final_filename = filename + format
     print(f"Generated filename: {final_filename}")
     return final_filename
 
@@ -156,7 +156,7 @@ def convert_intercom_to_markdown(html_content):
         subtitle = None
         print(f"No title found, using default: {title}")
     else:
-        title = headers[-1].get_text().strip()
+        title = headers[-1].get_text().strip().title()
         print(f"Found article title: {title}")
 
         # Try to find subtitle
@@ -222,12 +222,6 @@ def convert_intercom_to_markdown(html_content):
             print(f"Processing h1: {heading_text}")
             markdown_content.append(f"\n## {heading_text}\n")
 
-        elif block.find("h1"):
-            heading = block.find("h1")
-            heading_text = process_text_with_formatting(heading, is_heading=True)
-            print(f"Processing h1: {heading_text}")
-            markdown_content.append(f"\n## {heading_text}\n")
-
         elif block.find("p"):
             p = block.find("p")
             processed_text = process_text_with_formatting(p)
@@ -243,7 +237,7 @@ def convert_intercom_to_markdown(html_content):
     return final_content, title
 
 
-def process_single_article(source, output=None):
+def process_single_article(source, output=None, format=".md"):
     """Process a single article and save to markdown."""
     try:
         html_content = fetch_content(source)
@@ -254,7 +248,7 @@ def process_single_article(source, output=None):
             print(f"Using specified output path: {output_path}")
         else:
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            filename = sanitize_filename(title)
+            filename = sanitize_filename(title, format)
             output_path = os.path.join(script_dir, filename)
             print(f"Using generated output path: {output_path}")
 
@@ -268,7 +262,7 @@ def process_single_article(source, output=None):
         return False, str(e)
 
 
-def process_url_list(list_file):
+def process_url_list(list_file, format=".md"):
     """Process multiple URLs from a list file."""
     print(f"\nProcessing URLs from list file: {list_file}")
     try:
@@ -280,7 +274,7 @@ def process_url_list(list_file):
         results = []
         for i, url in enumerate(urls, 1):
             print(f"\n=== Processing URL {i}/{len(urls)}: {url} ===")
-            success, message = process_single_article(url)
+            success, message = process_single_article(url, format=format)
             results.append((url, success, message))
 
         print("\n=== Processing Summary ===")
@@ -304,13 +298,14 @@ def main():
     group.add_argument("--source", help="URL or file path of the Intercom article")
     group.add_argument("--list", help="File containing list of URLs to process")
     parser.add_argument("-o", "--output", help="Output file path (optional, only used with --source)")
+    parser.add_argument("--format", choices=[".md", ".mdx"], default=".md", help="Output file format (default: .md)")
     args = parser.parse_args()
 
     if args.list:
-        process_url_list(args.list)
+        process_url_list(args.list, format=args.format)
     else:
         print("\n=== Starting Intercom to Markdown Conversion ===")
-        success, message = process_single_article(args.source, args.output)
+        success, message = process_single_article(args.source, args.output, format=args.format)
         if not success:
             print(f"\nError: {message}")
             exit(1)
